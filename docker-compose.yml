@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nomiapp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nomiapp
+      POSTGRES_PASSWORD: nomiapp
+      POSTGRES_DB: nomiapp
+    ports:
+      - "5433:5432"
+    volumes:
+      - nomiapp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nomiapp -d nomiapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nomiapp_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@nomiapp.co
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  nomiapp_pgdata:
