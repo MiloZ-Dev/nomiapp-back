@@ -12,13 +12,13 @@ from app.core.security import (
     decode_token,
     verify_password,
 )
-from app.models.usuario import Usuario
+from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 
 async def authenticate(db: AsyncSession, payload: LoginRequest) -> TokenResponse:
     result = await db.execute(
-        select(Usuario).where(Usuario.email == payload.email.lower())
+        select(User).where(User.email == payload.email.lower())
     )
     user = result.scalar_one_or_none()
 
@@ -28,7 +28,7 @@ async def authenticate(db: AsyncSession, payload: LoginRequest) -> TokenResponse
             detail="Credenciales inválidas",
         )
 
-    if not user.activo:
+    if not user.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario inactivo",
@@ -63,8 +63,8 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> TokenRes
     except (ValueError, TypeError):
         raise invalid
 
-    user = await db.get(Usuario, user_id)
-    if user is None or not user.activo:
+    user = await db.get(User, user_id)
+    if user is None or not user.active:
         raise invalid
 
     return TokenResponse(

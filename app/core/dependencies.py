@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import ACCESS_TOKEN_TYPE, decode_token
 from app.db.session import get_db
-from app.models.usuario import RolEnum, Usuario
+from app.models.user import RoleEnum, User
 
 bearer_scheme = HTTPBearer(auto_error=True)
 
@@ -18,7 +18,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: DbSession,
-) -> Usuario:
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar las credenciales",
@@ -42,19 +42,19 @@ async def get_current_user(
     except (ValueError, TypeError):
         raise credentials_exception
 
-    user = await db.get(Usuario, user_id)
-    if user is None or not user.activo:
+    user = await db.get(User, user_id)
+    if user is None or not user.active:
         raise credentials_exception
 
     return user
 
 
-CurrentUser = Annotated[Usuario, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-async def require_super_admin(current_user: CurrentUser) -> Usuario:
-    """Solo permite usuarios con rol super_admin."""
-    if current_user.rol != RolEnum.super_admin:
+async def require_super_admin(current_user: CurrentUser) -> User:
+    """Only allows users with the super_admin role."""
+    if current_user.role != RoleEnum.super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requieren privilegios de super administrador",
@@ -62,13 +62,13 @@ async def require_super_admin(current_user: CurrentUser) -> Usuario:
     return current_user
 
 
-async def require_empresa_access(empresa_id: uuid.UUID, current_user: CurrentUser) -> Usuario:
-    """Permite acceso si el usuario es super_admin o admin de la empresa del path."""
-    if current_user.rol == RolEnum.super_admin:
+async def require_company_access(company_id: uuid.UUID, current_user: CurrentUser) -> User:
+    """Allows access if the user is super_admin or admin of the path's company."""
+    if current_user.role == RoleEnum.super_admin:
         return current_user
     if (
-        current_user.rol == RolEnum.admin_empresa
-        and current_user.empresa_id == empresa_id
+        current_user.role == RoleEnum.company_admin
+        and current_user.company_id == company_id
     ):
         return current_user
     raise HTTPException(
@@ -77,5 +77,5 @@ async def require_empresa_access(empresa_id: uuid.UUID, current_user: CurrentUse
     )
 
 
-RequireSuperAdmin = Annotated[Usuario, Depends(require_super_admin)]
-RequireEmpresaAccess = Annotated[Usuario, Depends(require_empresa_access)]
+RequireSuperAdmin = Annotated[User, Depends(require_super_admin)]
+RequireCompanyAccess = Annotated[User, Depends(require_company_access)]

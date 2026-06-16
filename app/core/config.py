@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Configuración de la aplicación cargada desde variables de entorno / .env."""
+    """Application configuration loaded from environment variables / .env."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -12,14 +12,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Proyecto
+    # Project
     PROJECT_NAME: str = "NomiApp"
     API_V1_PREFIX: str = "/api/v1"
 
-    # Base de datos
+    # Database
     DATABASE_URL: str = "postgresql+asyncpg://nomiapp:nomiapp@localhost:5432/nomiapp"
 
-    # Seguridad / JWT
+    # Security / JWT
     SECRET_KEY: str = "cambia-esta-clave-por-una-aleatoria-y-segura"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -27,6 +27,21 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+
+    # Supabase Storage
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+    SUPABASE_BUCKET: str = "nomiapp-storage"
+
+    # Resend (email sending)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+
+    # Anthropic
+    ANTHROPIC_API_KEY: str = ""
+
+    # Environment
+    ENVIRONMENT: str = "development"
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

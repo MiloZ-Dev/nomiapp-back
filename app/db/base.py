@@ -1,12 +1,13 @@
-"""Punto único de importación de la metadata.
+"""Single import point for the metadata.
 
-Importa la ``Base`` y todos los modelos para que queden registrados en
-``Base.metadata``. Lo usan ``create_all`` (seed) y Alembic (autogenerate).
+Imports ``Base`` and all models so they get registered in ``Base.metadata``.
+Used by ``create_all`` (seed) and Alembic (autogenerate).
 """
 
 from app.db.base_class import Base  # noqa: F401
-from app.models.usuario import Usuario  # noqa: F401
-from app.models.empresa import Empresa  # noqa: F401
-from app.models.empleado import Empleado  # noqa: F401
-from app.models.contrato import Contrato  # noqa: F401
-from app.models.nomina import Nomina, NominaDetalle  # noqa: F401
+from app.models.user import User  # noqa: F401
+from app.models.company import Company  # noqa: F401
+from app.models.employee import Employee  # noqa: F401
+from app.models.contract import Contract  # noqa: F401
+from app.models.incident import Incident  # noqa: F401
+from app.models.payroll import Payroll, PayrollDetail  # noqa: F401

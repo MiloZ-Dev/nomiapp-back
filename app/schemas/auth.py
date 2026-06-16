@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.models.usuario import RolEnum
+from app.models.user import RoleEnum
 
 
 class LoginRequest(BaseModel):
@@ -21,13 +21,13 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class UsuarioOut(BaseModel):
+class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     email: EmailStr
-    nombre: str
-    rol: RolEnum
-    empresa_id: uuid.UUID | None = None
-    activo: bool
+    name: str
+    role: RoleEnum
+    company_id: uuid.UUID | None = None
+    active: bool
     created_at: datetime

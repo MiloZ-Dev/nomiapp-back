@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from app.core.config import settings
-from app.db.base import Base  # importa la metadata con todos los modelos
+from app.db.base import Base  # imports the metadata with all models
 
 config = context.config
 

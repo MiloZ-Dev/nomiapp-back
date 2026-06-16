@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.responses import envelope
 from app.core.dependencies import CurrentUser, DbSession
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse, UsuarioOut
+from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse, UserOut
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -25,6 +25,6 @@ async def refresh(payload: RefreshRequest, db: DbSession):
 @router.get("/me")
 async def me(current_user: CurrentUser):
     return envelope(
-        data=UsuarioOut.model_validate(current_user),
+        data=UserOut.model_validate(current_user),
         message="Usuario actual",
     )

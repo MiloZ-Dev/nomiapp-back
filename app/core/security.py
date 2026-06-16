@@ -59,5 +59,5 @@ def create_refresh_token(subject: str) -> str:
 
 
 def decode_token(token: str) -> dict[str, Any]:
-    """Decodifica y valida el token. Lanza jwt.PyJWTError si es inválido/expirado."""
+    """Decode and validate the token. Raises jwt.PyJWTError if invalid/expired."""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
