@@ -101,11 +101,11 @@ async def close(
 async def payroll_pdf(
     company_id: uuid.UUID, payroll_id: uuid.UUID, db: DbSession, _: RequireCompanyAccess
 ):
-    payroll, company, employees = await payroll_service.get_payroll_pdf_data(
-        db, company_id, payroll_id
+    payroll, company, employees, incidents_by_employee = (
+        await payroll_service.get_payroll_pdf_data(db, company_id, payroll_id)
     )
     pdf_bytes = pdf_service.generate_payroll_pdf(
-        payroll, list(payroll.details), company, employees
+        payroll, list(payroll.details), company, employees, incidents_by_employee
     )
     filename = f"nomina_{_slug_filename(company.name)}_{payroll.period_start}.pdf"
     return StreamingResponse(

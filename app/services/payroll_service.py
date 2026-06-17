@@ -40,7 +40,6 @@ FIXED_EARNING_TYPES = {
     IncidentTypeEnum.BONUS,
     IncidentTypeEnum.COMMISSION,
     IncidentTypeEnum.SPECIAL_ALLOWANCE,
-    IncidentTypeEnum.PAID_SICK_LEAVE,
 }
 
 # Fixed-amount incidents added directly to deductions.
@@ -107,6 +106,13 @@ def calculate_payroll_detail(
             extra_earned += amount
             total_bonuses += amount
         elif inc_type == IncidentTypeEnum.PAID_VACATION:
+            value = daily_rate * days
+            extra_earned += value
+            total_bonuses += value
+        elif inc_type == IncidentTypeEnum.PAID_SICK_LEAVE:
+            # Empresa paga los primeros 2 días completos
+            # Del día 3 en adelante paga EPS (66.67%)
+            # Por ahora simplificar: pagar todos los días al 100%
             value = daily_rate * days
             extra_earned += value
             total_bonuses += value
@@ -281,7 +287,7 @@ async def get_payroll(
 async def get_payroll_pdf_data(
     db: AsyncSession, company_id: uuid.UUID, payroll_id: uuid.UUID
 ):
-    """Gathers (payroll, company, {employee_id: Employee}) for the payroll PDF."""
+    """Gathers (payroll, company, {employee_id: Employee}, incidents) for the PDF."""
     payroll = await get_payroll(db, company_id, payroll_id)
     company = await get_company(db, company_id)
 
@@ -291,7 +297,16 @@ async def get_payroll_pdf_data(
         res = await db.execute(select(Employee).where(Employee.id.in_(ids)))
         employees = {e.id: e for e in res.scalars().all()}
 
-    return payroll, company, employees
+    # Cargar novedades aplicadas en esta nómina agrupadas por empleado
+    incidents_by_employee: dict[uuid.UUID, list] = {}
+    if payroll.id:
+        inc_res = await db.execute(
+            select(Incident).where(Incident.payroll_id == payroll.id)
+        )
+        for inc in inc_res.scalars().all():
+            incidents_by_employee.setdefault(inc.employee_id, []).append(inc)
+
+    return payroll, company, employees, incidents_by_employee
 
 
 async def get_pay_stub_data(

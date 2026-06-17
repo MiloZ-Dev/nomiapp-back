@@ -21,6 +21,17 @@ COLOR_LIGHT_GREEN = "#D1FAE5"
 COLOR_HEADER_GRAY = "#E5E7EB"
 COLOR_TEXT = "#111827"
 
+CONTRACT_TYPE_LABELS = {
+    "fixed_term": "Término Fijo",
+    "indefinite": "Indefinido",
+    "work_contract": "Obra Labor",
+}
+
+PAYROLL_STATUS_LABELS = {
+    "draft": "Borrador",
+    "closed": "Cerrada",
+}
+
 
 def _cop(value) -> str:
     """Formats a value as Colombian pesos: '$ 1.234.567'."""
@@ -40,11 +51,12 @@ def generate_payroll_pdf(
     details: list[PayrollDetail],
     company: Company,
     employees: dict[uuid.UUID, Employee],
+    incidents_by_employee: dict | None = None,
 ) -> bytes:
     from io import BytesIO
 
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.pagesizes import letter, landscape
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import (
@@ -58,7 +70,7 @@ def generate_payroll_pdf(
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=letter,
+        pagesize=landscape(letter),
         leftMargin=12 * mm,
         rightMargin=12 * mm,
         topMargin=14 * mm,
@@ -77,9 +89,9 @@ def generate_payroll_pdf(
         "title", parent=styles["Heading1"], fontSize=14, spaceBefore=6, spaceAfter=2
     )
     sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.grey)
-    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=6, leading=7)
+    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, leading=9)
     cell_h = ParagraphStyle(
-        "cellH", parent=styles["Normal"], fontSize=6, leading=7, textColor=colors.white
+        "cellH", parent=styles["Normal"], fontSize=8, leading=9, textColor=colors.white
     )
 
     elements = []
@@ -98,7 +110,7 @@ def generate_payroll_pdf(
     elements.append(
         Paragraph(
             f"Período: {_format_date(payroll.period_start)} – {_format_date(payroll.period_end)}"
-            f" &nbsp;|&nbsp; Estado: {payroll.status.value}",
+            f" &nbsp;|&nbsp; Estado: {PAYROLL_STATUS_LABELS.get(payroll.status.value, payroll.status.value)}",
             sub,
         )
     )
@@ -106,7 +118,8 @@ def generate_payroll_pdf(
 
     headers = [
         "Empleado", "Cédula", "Cargo", "Salario Base", "Aux. Transp.",
-        "H. Extra", "Devengado", "Salud", "Pensión", "Deducc.", "NETO",
+        "H. Extra", "Bonif./Incap.", "Devengado", "Salud", "Pensión",
+        "Otros Desc.", "Total Deducc.", "NETO",
     ]
     data = [[Paragraph(f"<b>{h}</b>", cell_h) for h in headers]]
 
@@ -121,28 +134,40 @@ def generate_payroll_pdf(
             Paragraph(position, cell),
             Paragraph(_cop(det.base_salary), cell),
             Paragraph(_cop(det.transport_allowance), cell),
-            Paragraph(_cop(det.overtime_value), cell),
+            Paragraph(_cop(det.overtime_value) if Decimal(det.overtime_value) > 0 else "—", cell),
+            Paragraph(_cop(det.total_bonuses) if Decimal(det.total_bonuses) > 0 else "—", cell),
             Paragraph(_cop(det.total_earned), cell),
             Paragraph(_cop(det.health_deduction), cell),
             Paragraph(_cop(det.pension_deduction), cell),
+            Paragraph(_cop(det.total_additional_deductions) if Decimal(det.total_additional_deductions) > 0 else "—", cell),
             Paragraph(_cop(det.total_deductions), cell),
             Paragraph(f"<b>{_cop(det.net_pay)}</b>", cell),
         ])
 
     # Totals row
     data.append([
-        Paragraph("<b>TOTALES</b>", cell), Paragraph("", cell), Paragraph("", cell),
-        Paragraph("", cell), Paragraph("", cell), Paragraph("", cell),
+        Paragraph("<b>TOTALES</b>", cell), "", "", "", "", "", "",
         Paragraph(f"<b>{_cop(payroll.total_earned)}</b>", cell),
-        Paragraph("", cell), Paragraph("", cell),
+        "", "", "",
         Paragraph(f"<b>{_cop(payroll.total_deductions)}</b>", cell),
         Paragraph(f"<b>{_cop(payroll.total_net)}</b>", cell),
     ])
 
     w = doc.width
     col_widths = [
-        w * 0.14, w * 0.08, w * 0.10, w * 0.095, w * 0.09, w * 0.07,
-        w * 0.095, w * 0.075, w * 0.075, w * 0.085, w * 0.10,
+        w * 0.12,  # Empleado
+        w * 0.08,  # Cédula
+        w * 0.09,  # Cargo
+        w * 0.08,  # Salario Base
+        w * 0.07,  # Aux. Transp.
+        w * 0.06,  # H. Extra
+        w * 0.07,  # Bonif./Incap.
+        w * 0.08,  # Devengado
+        w * 0.06,  # Salud
+        w * 0.06,  # Pensión
+        w * 0.07,  # Otros Desc.
+        w * 0.08,  # Total Deducc.
+        w * 0.08,  # NETO
     ]
     table = Table(data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
@@ -251,8 +276,13 @@ def generate_pay_stub_pdf(
     ))
 
     # Employee
-    contract_type = contract.type.value if contract else "—"
+    contract_type = (
+        CONTRACT_TYPE_LABELS.get(contract.type.value, contract.type.value)
+        if contract
+        else "—"
+    )
     contract_start = _format_date(contract.start_date) if contract else "—"
+    period_days = (payroll.period_end - payroll.period_start).days + 1
     elements.append(Paragraph("Empleado", section))
     elements.append(Paragraph(
         f"<b>{employee.first_name} {employee.last_name}</b><br/>"
@@ -267,7 +297,7 @@ def generate_pay_stub_pdf(
     elements.append(Paragraph("Período", section))
     elements.append(Paragraph(
         f"{_format_date(payroll.period_start)} – {_format_date(payroll.period_end)}"
-        f"<br/>Días trabajados: {detail.days_worked}",
+        f"<br/>Días del período: {period_days}",
         normal,
     ))
     elements.append(Spacer(1, 8))
@@ -297,6 +327,8 @@ def generate_pay_stub_pdf(
         earning_rows.append(("Auxilio de transporte", detail.transport_allowance))
     if Decimal(detail.overtime_value) > 0:
         earning_rows.append(("Horas extra", detail.overtime_value))
+    if Decimal(detail.total_bonuses) > 0:
+        earning_rows.append(("Bonificaciones / Incapacidades", detail.total_bonuses))
     elements.append(_concept_table(
         "DEVENGADOS", earning_rows, "TOTAL DEVENGADO", detail.total_earned
     ))
@@ -307,6 +339,8 @@ def generate_pay_stub_pdf(
         ("Salud (4%)", detail.health_deduction),
         ("Pensión (4%)", detail.pension_deduction),
     ]
+    if Decimal(detail.total_additional_deductions) > 0:
+        deduction_rows.append(("Otros descuentos", detail.total_additional_deductions))
     elements.append(_concept_table(
         "DEDUCCIONES", deduction_rows, "TOTAL DEDUCCIONES", detail.total_deductions
     ))
